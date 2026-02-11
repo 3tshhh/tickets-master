@@ -1,0 +1,679 @@
+{
+  "info": {
+    "name": "Ticket Master API",
+    "description": "QR Code Ticket System — Express + TypeScript + Postgres + Redis (UUID-based QR codes with AES-256-GCM encryption)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "ticketToken",
+      "value": "",
+      "description": "UUID stored in Redis — set automatically by Create/Regenerate requests, used by Verify requests"
+    },
+    {
+      "key": "ticketId",
+      "value": "",
+      "description": "Ticket ID — set automatically by Create requests"
+    }
+  ],
+  "item": [
+    {
+      "name": "── Create Tickets ──"
+    },
+    {
+      "name": "Create Ticket — Regular",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"regular\",\n  \"venueName\": \"Madison Square Garden\",\n  \"eventTime\": \"2026-06-20T20:00:00Z\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Has ticket and qrCode', () => {",
+              "  pm.expect(res).to.have.property('ticket');",
+              "  pm.expect(res).to.have.property('qrCode');",
+              "  pm.expect(res.qrCode).to.include('data:image/png;base64');",
+              "});",
+              "pm.test('Ticket type is regular', () => {",
+              "  pm.expect(res.ticket.ticketType).to.eql('regular');",
+              "});",
+              "if (res.ticket) {",
+              "  pm.collectionVariables.set('ticketId', res.ticket.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Ticket — VIP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"vip\",\n  \"venueName\": \"Stadium XYZ\",\n  \"eventTime\": \"2026-03-15T19:00:00Z\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Ticket type is vip', () => {",
+              "  pm.expect(res.ticket.ticketType).to.eql('vip');",
+              "});",
+              "if (res.ticket) {",
+              "  pm.collectionVariables.set('ticketId', res.ticket.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Ticket — Test",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"test\",\n  \"venueName\": \"QA Testing Venue\",\n  \"eventTime\": \"2026-04-01T12:00:00Z\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Ticket type is test', () => {",
+              "  pm.expect(res.ticket.ticketType).to.eql('test');",
+              "});",
+              "if (res.ticket) {",
+              "  pm.collectionVariables.set('ticketId', res.ticket.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Ticket — Missing Fields (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"regular\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error mentions required fields', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.error).to.include('required');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Ticket — Invalid Type (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"premium\",\n  \"venueName\": \"Some Venue\",\n  \"eventTime\": \"2026-05-01T15:00:00Z\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error lists valid types', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.error).to.include('regular');",
+              "  pm.expect(res.error).to.include('vip');",
+              "  pm.expect(res.error).to.include('test');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "── Bulk Create ──"
+    },
+    {
+      "name": "Bulk Create — Regular (10)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "bulk"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"regular\",\n  \"venueName\": \"Madison Square Garden\",\n  \"eventTime\": \"2026-06-20T20:00:00Z\",\n  \"count\": 10\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Correct count', () => {",
+              "  pm.expect(res.count).to.eql(10);",
+              "  pm.expect(res.tickets).to.be.an('array').with.lengthOf(10);",
+              "});",
+              "pm.test('Each ticket has qrCode and imagePath', () => {",
+              "  res.tickets.forEach(t => {",
+              "    pm.expect(t).to.have.property('ticket');",
+              "    pm.expect(t).to.have.property('qrCode');",
+              "    pm.expect(t).to.have.property('imagePath');",
+              "    pm.expect(t.qrCode).to.include('data:image/png;base64');",
+              "    pm.expect(t.imagePath).to.include('regular');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Bulk Create — VIP (5)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "bulk"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"vip\",\n  \"venueName\": \"Stadium XYZ\",\n  \"eventTime\": \"2026-03-15T19:00:00Z\",\n  \"count\": 5\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Correct count', () => {",
+              "  pm.expect(res.count).to.eql(5);",
+              "});",
+              "pm.test('Each ticket has imagePath in vip folder', () => {",
+              "  res.tickets.forEach(t => {",
+              "    pm.expect(t.imagePath).to.include('vip');",
+              "    pm.expect(t.ticket.ticketType).to.eql('vip');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Bulk Create — Test (3)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "bulk"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"test\",\n  \"venueName\": \"QA Testing Venue\",\n  \"eventTime\": \"2026-04-01T12:00:00Z\",\n  \"count\": 3\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Correct count', () => {",
+              "  pm.expect(res.count).to.eql(3);",
+              "});",
+              "pm.test('Each ticket has imagePath in test folder', () => {",
+              "  res.tickets.forEach(t => {",
+              "    pm.expect(t.imagePath).to.include('test');",
+              "    pm.expect(t.ticket.ticketType).to.eql('test');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Bulk Create — Missing Fields (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "bulk"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"regular\",\n  \"venueName\": \"Some Venue\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error mentions required fields', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.error).to.include('required');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Bulk Create — Invalid Count (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "bulk"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"regular\",\n  \"venueName\": \"Some Venue\",\n  \"eventTime\": \"2026-05-01T15:00:00Z\",\n  \"count\": 999\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error mentions count range', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.error).to.include('1 and 500');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Bulk Create — Invalid Type (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "bulk"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketType\": \"gold\",\n  \"venueName\": \"Some Venue\",\n  \"eventTime\": \"2026-05-01T15:00:00Z\",\n  \"count\": 5\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error lists valid types', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.error).to.include('regular');",
+              "  pm.expect(res.error).to.include('vip');",
+              "  pm.expect(res.error).to.include('test');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "── List & Regenerate QR ──"
+    },
+    {
+      "name": "Get All Tickets",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is array', () => {",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Regenerate QR — By ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/{{ticketId}}/qr",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "{{ticketId}}", "qr"]
+        },
+        "description": "Re-generates a QR code for an existing ticket. Creates a new UUID in Redis. Uses the ticketId variable set by a previous Create request."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has ticket and qrCode', () => {",
+              "  pm.expect(res).to.have.property('ticket');",
+              "  pm.expect(res).to.have.property('qrCode');",
+              "  pm.expect(res.qrCode).to.include('data:image/png;base64');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Regenerate QR — Not Found (404)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/9999/qr",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "9999", "qr"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "── Verify Tickets ──"
+    },
+    {
+      "name": "Verify Ticket — Valid",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{ticketToken}}\"\n}"
+        },
+        "description": "Send the UUID (from the QR code) as the token. Set the ticketToken collection variable to a real UUID obtained from a Create or Regenerate QR response."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Ticket is valid', () => {",
+              "  pm.expect(res.valid).to.eql(true);",
+              "  pm.expect(res.message).to.eql('Ticket verified successfully');",
+              "});",
+              "pm.test('Returns updated ticket', () => {",
+              "  pm.expect(res.ticket).to.have.property('id');",
+              "  pm.expect(res.ticket.isUsed).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Verify Ticket — Already Used (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{ticketToken}}\"\n}"
+        },
+        "description": "Run AFTER 'Verify Ticket — Valid' with the same UUID to test the already-used check."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Ticket already used', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.valid).to.eql(false);",
+              "  pm.expect(res.message).to.include('already been used');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Verify Ticket — Missing Token (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Token required message', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.message).to.include('Token is required');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Verify Ticket — Invalid UUID (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tickets/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tickets", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"00000000-0000-0000-0000-000000000000\"\n}"
+        },
+        "description": "A UUID that doesn't exist in Redis — should return invalid."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Invalid token message', () => {",
+              "  const res = pm.response.json();",
+              "  pm.expect(res.valid).to.eql(false);",
+              "  pm.expect(res.message).to.include('Invalid');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}
