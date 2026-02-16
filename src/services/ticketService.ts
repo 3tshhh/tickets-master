@@ -45,3 +45,11 @@ export async function markTicketAsUsed(id: number): Promise<Ticket | null> {
   ticket.isUsed = true;
   return ticketRepo.save(ticket);
 }
+
+export async function markTicketAsunUsed(id: number): Promise<Ticket | null> {
+  const ticket = await ticketRepo.findOneBy({ id });
+  if (!ticket) return null;
+  ticket.isUsed = false;
+  return ticketRepo.save(ticket);
+}
+

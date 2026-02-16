@@ -5,6 +5,7 @@ import {
   getTicketById,
   getAllTickets,
   markTicketAsUsed,
+  markTicketAsunUsed,
 } from "../services/ticketService";
 import crypto from "crypto";
 import { signToken, verifyToken } from "../utils/jwt";
@@ -128,8 +129,8 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/tickets/:id/qr — Re-generate QR for a ticket
-router.get("/:id/qr", async (req: Request, res: Response) => {
+// GET /api/tickets/:id/reg — Re-generate QR for a ticket
+router.get("/:id/reg", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     const ticket = await getTicketById(id);
@@ -158,6 +159,35 @@ router.get("/:id/qr", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/:id/qr", async (req: Request, res: Response) => {
+  try {
+
+    const id = parseInt(req.params.id as string, 10);
+
+    const ticket = await getTicketById(id);
+
+    if (!ticket) {
+      res.status(404).json({ valid: false, message: "Ticket not found" });
+      return;
+    }
+
+    if (ticket.isUsed) {
+      res.status(400).json({ valid: false, message: "Ticket has already been used" });
+      return;
+    }
+
+    const updatedTicket = await markTicketAsUsed(ticket.id);
+
+    res.json({
+      valid: true,
+      message: "Ticket verified successfully",
+      ticket: updatedTicket,
+    });
+  } catch (error) {
+    console.error("Error verifying ticket:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 // POST /api/tickets/verify — Verify a ticket from scanned QR
 router.post("/verify", async (req: Request, res: Response) => {
   try {
@@ -215,6 +245,47 @@ router.post("/verify", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error verifying ticket:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/tickets/retrue/all — make all tickets valid again (for testing)
+router.get("/retrue/all", async (_req: Request, res: Response) => {
+  try {
+    const tickets = await getAllTickets();
+    const updatedTickets = [];
+    for (const ticket of tickets) {
+      if (ticket.isUsed) {
+        ticket.isUsed = false;
+        updatedTickets.push(await markTicketAsunUsed(ticket.id));
+      }
+    }
+    res.json({ count: updatedTickets.length, tickets: updatedTickets });
+  } catch (error) {
+    console.error("Error resetting tickets:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/tickets/retrue/:id — make all tickets valid again (for testing)
+router.get("/retrue/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const ticket = await getTicketById(id);
+
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+
+    if (ticket.isUsed) {
+      const updatedTicket = await markTicketAsunUsed(ticket.id);
+      res.json({ updatedTicket });
+    } else {
+      res.json({ ticket });
+    }
+  } catch (error) {
+    console.error("Error resetting ticket:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

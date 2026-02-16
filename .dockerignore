@@ -1,0 +1,8 @@
+node_modules/
+dist/
+qr-images/
+.env
+*.md
+.git
+.gitignore
+postman_collection.json
